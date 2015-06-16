@@ -11,6 +11,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +26,8 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display the stack backtrace", mon_backtrace},
+	{ "showmappings", "Show the mappings info", mon_showmappings},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -60,10 +63,72 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	return 0;
+	uint32_t ebp, eip;
+	uint32_t arg1, arg2, arg3, arg4, arg5;
+	struct Eipdebuginfo info;
+
+	cprintf("Stack backtrace:\n");
+
+	for (ebp = read_ebp(); ebp != 0; ebp = *(uint32_t *)ebp)
+	{
+		eip = *(uint32_t *)(ebp + 4);
+		arg1 = *(uint32_t *)(ebp + 8);
+		arg2 = *(uint32_t *)(ebp + 12);
+		arg3 = *(uint32_t *)(ebp + 16);
+		arg4 = *(uint32_t *)(ebp + 20);
+		arg5 = *(uint32_t *)(ebp + 24);
+			
+		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
+		
+		if (!debuginfo_eip(eip, &info))
+		{
+			cprintf("         %s:%d:", info.eip_file, info.eip_line);
+			cprintf("  %.*s", info.eip_fn_namelen, info.eip_fn_name);
+			cprintf("+%d\n", eip - info.eip_fn_addr);
+		}
+		else
+			cprintf("not found\n");
+	}
+		return 0;
 }
 
+int 
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t va_start, va_end, va;
+	pte_t *pte;
+	int i, npages;
 
+	if (argc != 3)
+		cprintf("error: showmappings needs 2 parameters\n");
+	else
+	{
+		va_start = (uintptr_t)strtol(argv[1], NULL, 16);
+		va_end = (uintptr_t)strtol(argv[2], NULL ,16);
+		
+		if (va_end < va_start)
+			cprintf("error: va_end < va_start\n");
+		else
+		{	
+			npages = ROUNDUP(va_end - va_start + 1, PGSIZE);
+			npages = npages >> PGSHIFT;
+
+			for (i = 0, va = va_start; i < npages; i++, va += PGSIZE)
+			{	
+				pte = pgdir_walk(kern_pgdir,(void *) va, 0);
+
+				if (pte && (*pte & PTE_P))
+					cprintf("vapaddr:0x%x --> paddr:0x%x, p = %d, w = %d, u = %d\n",
+							va, PTE_ADDR(*pte), *pte & PTE_P,
+							(*pte & PTE_W) >> 1, (*pte & PTE_U) >> 2);
+				else
+					cprintf("vaddr:0x%x is not mapped\n", va);
+			}
+		}	
+	}
+
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
@@ -108,7 +173,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	cprintf("Unknown command '%s'\n", argv[0]);
 	return 0;
 }
-
+	
 void
 monitor(struct Trapframe *tf)
 {
