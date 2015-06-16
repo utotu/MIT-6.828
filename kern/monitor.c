@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +26,7 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display the stack backtrace", mon_backtrace},
+	{ "showmappings", "Show the mappings info", mon_showmappings},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -89,7 +91,43 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		return 0;
 }
 
+int 
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t va_start, va_end, va;
+	pte_t *pte;
+	int i, npages;
 
+	if (argc != 3)
+		cprintf("error: showmappings needs 2 parameters\n");
+	else
+	{
+		va_start = (uintptr_t)strtol(argv[1], NULL, 16);
+		va_end = (uintptr_t)strtol(argv[2], NULL ,16);
+		
+		if (va_end < va_start)
+			cprintf("error: va_end < va_start\n");
+		else
+		{	
+			npages = ROUNDUP(va_end - va_start + 1, PGSIZE);
+			npages = npages >> PGSHIFT;
+
+			for (i = 0, va = va_start; i < npages; i++, va += PGSIZE)
+			{	
+				pte = pgdir_walk(kern_pgdir,(void *) va, 0);
+
+				if (pte && (*pte & PTE_P))
+					cprintf("vapaddr:0x%x --> paddr:0x%x, p = %d, w = %d, u = %d\n",
+							va, PTE_ADDR(*pte), *pte & PTE_P,
+							(*pte & PTE_W) >> 1, (*pte & PTE_U) >> 2);
+				else
+					cprintf("vaddr:0x%x is not mapped\n", va);
+			}
+		}	
+	}
+
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
@@ -134,7 +172,7 @@ runcmd(char *buf, struct Trapframe *tf)
 	cprintf("Unknown command '%s'\n", argv[0]);
 	return 0;
 }
-
+	
 void
 monitor(struct Trapframe *tf)
 {
@@ -142,7 +180,6 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
-
 
 	while (1) {
 		buf = readline("K> ");

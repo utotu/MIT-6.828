@@ -129,6 +129,7 @@ mem_init(void)
 	uint32_t cr0;
 	size_t n;
 
+	
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory();
 
