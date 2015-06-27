@@ -370,7 +370,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	struct Proghdr *ph, *eph;
 	uint8_t *i;
 
-//	cprintf("everything ok here?\n");
 	lcr3(PADDR(e->env_pgdir));
 	elfhdr = (struct Elf *)binary;
 	
@@ -389,10 +388,6 @@ load_icode(struct Env *e, uint8_t *binary)
 			continue;
 		
 		region_alloc(e, (void *)ph->p_va ,ph->p_memsz);
-
-//		cprintf("every thing right1?\n");
-//		cprintf("binary = %x, ph->p_offset = %x\n", binary, ph->p_offset);
-//		cprintf("ph->p_filesz = %x, ph->p_memsz = %x\n", ph->p_filesz, ph->p_memsz);
 
 		for (i = binary+ph->p_offset; i < binary+ph->p_offset+ph->p_filesz; i++)
 			*((uint8_t *)ph->p_va++) = *i;		
