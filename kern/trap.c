@@ -30,6 +30,33 @@ struct Pseudodesc idt_pd = {
 	sizeof(idt) - 1, (uint32_t) idt
 };
 
+extern void vector0();
+extern void vector1();
+extern void vector2();
+extern void vector3();
+extern void vector4();
+extern void vector5();
+extern void vector6();
+extern void vector7();
+extern void vector8();
+// extern void vector9();
+extern void vector10();
+extern void vector11();
+extern void vector12();
+extern void vector13();
+extern void vector14();
+// extern void vector15();
+extern void vector16();
+extern void vector17();
+extern void vector18();
+extern void vector19();
+extern void vector48();
+
+static void (*vectors[])(void) = { vector0, vector1, vector2, vector3, vector4,
+								  vector5, vector6, vector7, vector8, 0, 
+								  vector10, vector11, vector12, vector13, vector14,
+								  0, vector16, vector17, vector18, vector19,
+								  [T_SYSCALL] vector48 };
 
 static const char *trapname(int trapno)
 {
@@ -70,9 +97,17 @@ void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
-
+	int i;
+	
 	// LAB 3: Your code here.
+	for (i = 0; i < 3; i++)
+		SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
+	for (i = 4; i < 20; i++)
+		SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
 
+	SETGATE(idt[3], 0, GD_KT, vector3, 3);
+	SETGATE(idt[48], 0, GD_KT, vector48, 3);
+	
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -173,6 +208,29 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	uint32_t trapno;	
+	
+	trapno = tf->tf_trapno;		
+	switch (trapno)
+	{
+		case T_PGFLT:
+			if (!(tf->tf_cs & 3))
+				panic("page falut should never happen in kernel\n");
+			else 
+				page_fault_handler(tf);
+			return;
+		case T_BRKPT:
+			monitor(tf);
+			return;
+		case T_SYSCALL:
+			tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, 
+										  tf->tf_regs.reg_edx,
+										  tf->tf_regs.reg_ecx,
+										  tf->tf_regs.reg_ebx,
+										  tf->tf_regs.reg_edi,
+										  tf->tf_regs.reg_esi);
+			return;
+	}
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
