@@ -139,7 +139,7 @@ mem_init(void)
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
-	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
+	kern_pgdir = (pde_t *)boot_alloc(PGSIZE);
 	memset(kern_pgdir, 0, PGSIZE);
 
 	//////////////////////////////////////////////////////////////////////
@@ -287,7 +287,7 @@ page_init(void)
 	size_t i;
 	size_t npages_kernel_end;
 
-	npages_kernel_end = ((uintptr_t)boot_alloc(0) - KERNBASE) >> PGSHIFT;
+	npages_kernel_end = PADDR(boot_alloc(0)) >> PGSHIFT;
 
 	pages[0].pp_ref = 1;
 	pages[0].pp_link = NULL;
@@ -301,8 +301,8 @@ page_init(void)
 
 	for (i = npages_basemem; i < npages_kernel_end; i++)
 	{
-		pages[0].pp_ref = 1;
-		pages[0].pp_link = NULL;	
+		pages[i].pp_ref = 1;
+		pages[i].pp_link = NULL;	
 	}
 
 	for (i = npages_kernel_end; i < npages; i++)
@@ -419,7 +419,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		pp->pp_ref = 1;
 		*pde = page2pa(pp) | PTE_P | PTE_W | PTE_U;
 		
-		pgtab = (pte_t*)KADDR(PTE_ADDR(*pde));
+		pgtab = (pte_t *)KADDR(PTE_ADDR(*pde));
 		pte = &pgtab[PTX(va)];
 	}
 
@@ -447,7 +447,8 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	assert(va % PGSIZE == 0);
 	assert(pa % PGSIZE == 0);
 	assert(size % PGSIZE == 0);
-
+	
+	// be carefull the ternminal condition in case of overflow
 	for (i = va; i < va + (size -1) && (i != 0x0); i += PGSIZE, pa += PGSIZE)
 	{	
 		pte = pgdir_walk(pgdir, (void *)i, 1);
