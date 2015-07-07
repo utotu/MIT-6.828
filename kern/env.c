@@ -262,7 +262,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
-
+	e->env_tf.tf_eflags =  FL_IF;
+	
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
@@ -380,7 +381,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	// LAB 3: Your code here.
 	struct Elf *elfhdr;
 	struct Proghdr *ph, *eph;
-	uint8_t *i;
+	uint8_t *i, *dst;
 
 	lcr3(PADDR(e->env_pgdir));
 	elfhdr = (struct Elf *)binary;
@@ -398,14 +399,15 @@ load_icode(struct Env *e, uint8_t *binary)
 	{
 		if (ph->p_type != ELF_PROG_LOAD)
 			continue;
-		
+			
+		dst =  (uint8_t *)ph->p_va;
 		region_alloc(e, (void *)ph->p_va ,ph->p_memsz);
-
+	
 		for (i = binary+ph->p_offset; i < binary+ph->p_offset+ph->p_filesz; i++)
-			*((uint8_t *)ph->p_va++) = *i;		
+			*dst++ = *i;		
 
 		for (; i < binary+ph->p_offset+ph->p_memsz; i++)
-			*((uint8_t *)ph->p_va++) = 0;
+			*dst++ = 0;
 	}
 	
 	// Now map one page for the program's initial stack
@@ -568,15 +570,17 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	if (curenv != NULL)
-		if (curenv->env_status ==ENV_RUNNING)
-			curenv->env_status = ENV_RUNNABLE;
 	
+	if (curenv != NULL)
+		if (curenv->env_status == ENV_RUNNING) 
+				curenv->env_status = ENV_RUNNABLE;
+
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 	lcr3(PADDR(e->env_pgdir));
 	
+	unlock_kernel();
 	env_pop_tf(&e->env_tf);
 
 }
