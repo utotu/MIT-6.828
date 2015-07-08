@@ -447,7 +447,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_ipc_recv((void *)a1); // only return on error
 	
 		default:
-		return -E_NO_SYS;
+		return -E_INVAL;
 	}
 
 	// corresponding to void-type return
