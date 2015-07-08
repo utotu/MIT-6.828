@@ -52,6 +52,7 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
+	lock_kernel();
 	boot_aps();
 
 	// Start fs.
@@ -68,6 +69,9 @@ i386_init(void)
 	// Should not be necessary - drains keyboard because interrupt has given up.
 	kbd_intr();
 
+//	ENV_CREATE(user_yield, ENV_TYPE_USER);
+//	ENV_CREATE(user_yield, ENV_TYPE_USER);
+//	ENV_CREATE(user_yield, ENV_TYPE_USER);
 	// Schedule and run the first user environment!
 	sched_yield();
 }
@@ -93,8 +97,7 @@ boot_aps(void)
 	for (c = cpus; c < cpus + ncpu; c++) {
 		if (c == cpus + cpunum())  // We've started already.
 			continue;
-
-		// Tell mpentry.S what stack to use 
+		
 		mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
 		// Start the CPU at mpentry_start
 		lapic_startap(c->cpu_id, PADDR(code));
@@ -122,9 +125,10 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 4
-	for (;;);
 }
 
 /*
