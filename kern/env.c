@@ -303,8 +303,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 	i = npages = (ROUNDUP(va_end, PGSIZE) 
 				  - ROUNDDOWN(va, PGSIZE)) >> PGSHIFT;
 	
-	while ((npages != 0) && ((pp = page_alloc(0)) != NULL))
-	{
+	while ((npages != 0) && ((pp = page_alloc(0)) != NULL)) {
 		if (page_insert(e->env_pgdir, pp, va, PTE_U |PTE_W)	< 0)
 			break;
 
@@ -312,10 +311,8 @@ region_alloc(struct Env *e, void *va, size_t len)
 		npages--;
 	}
 
-	if (npages != 0)
-	{
-		for (i -= npages; i > 0; i--) 
-		{	
+	if (npages != 0) {
+		for (i -= npages; i > 0; i--) {	
 			va -= PGSIZE;
 			page_remove(e->env_pgdir, va);
 		}
@@ -444,7 +441,8 @@ env_create(uint8_t *binary, enum EnvType type)
 	
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
-
+	if (type == ENV_TYPE_FS)
+		new_env->env_tf.tf_eflags |= FL_IOPL_3;
 
 }
 

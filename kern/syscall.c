@@ -142,8 +142,18 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
-}
+	struct Env *e;
+	int r;
+
+	if ((r = envid2env(envid, &e, 1)) < 0)
+		return r;
+	
+	// Simple check for eip and esp, I am so not sure whether this is 
+	// necessary, or whether this is good enough
+	if ((tf->tf_eip < UTOP) && (tf->tf_esp < UTOP))
+		e->env_tf = *tf;
+	return 0;
+}	
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
 // Env's 'env_pgfault_upcall' field.  When 'envid' causes a page fault, the
@@ -404,7 +414,7 @@ sys_ipc_recv(void *dstva)
 		curenv->env_ipc_dstva = 0;
 
 	curenv->env_status = ENV_NOT_RUNNABLE;
-	curenv->env_tf.tf_regs.reg_eax = 0;	
+	curenv->env_tf.tf_regs.reg_eax = 0;			// return 0 on success	
 	sched_yield();
 	return 0;
 }
@@ -433,6 +443,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_exofork();
 		case SYS_env_set_status: 
 			return sys_env_set_status((envid_t)a1, (int)a2);
+		case SYS_env_set_trapframe:
+			return sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
 		case SYS_env_set_pgfault_upcall:
 			return sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
 		case SYS_page_alloc:
@@ -444,9 +456,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_ipc_try_send:
 			return sys_ipc_try_send((envid_t)a1, a2, (void *)a3, (unsigned)a4);
 		case SYS_ipc_recv:
-			return sys_ipc_recv((void *)a1); // only return on error
-	
-		default:
+			return sys_ipc_recv((void *)a1); // only return on err
+
 		return -E_INVAL;
 	}
 

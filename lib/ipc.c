@@ -26,7 +26,7 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 	int r;
 
 	// Any va >= UTOP will be ignored by sys_ipc_recv, 
-	// So it is ok to use UTOP to tell sys_ipc_recv no page mapping.
+	// so it is ok to use UTOP to tell sys_ipc_recv no page mapping.
 	if (pg == NULL)
 		pg = (void *)UTOP;
 	

@@ -73,16 +73,18 @@ duppage(envid_t envid, unsigned pn)
 	pte = uvpt[pn];
 	addr = pn * PGSIZE;
 	
-	if (pte & PTE_W || pte & PTE_COW) {
-		// mark copy-on-write for child's pte 
+	if (pte & PTE_SHARE) {
+		sys_page_map(0, (void *)addr, envid, (void *)addr, pte|PTE_SYSCALL);
+	} else if (pte & PTE_W || pte & PTE_COW) {
+		// mark copy-on-write for child's pte
 		if ((r = sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P|PTE_U|PTE_COW)) < 0)
 			panic("sys_page_map: %e", r);
 	
 		// makr copy-on-write for parent's pte
 		if ((r = sys_page_map(0, (void *)addr, 0, (void *)addr, PTE_P|PTE_U|PTE_COW)) < 0)
 			panic("sys_page_map: %e", r);
-	} else
-		panic("duppage: pn is not a writable or copy-on-write page");
+	} else 
+			sys_page_map(0, (void *)addr, envid, (void *)addr, PTE_P|PTE_U);				
 		
 	return 0;
 }
@@ -131,16 +133,13 @@ fork(void)
 			continue;			// pde is not present
 		
 		for (i = addr; (i < addr + PTSIZE) && (i < UTOP - PGSIZE); i += PGSIZE) {  
-			pn = i / PGSIZE;	
+			pn = PGNUM(i);	
 			pte = uvpt[pn];
 			
 			if ((pte & PTE_P) == 0) 
 				continue;			// pte is not present
 			
-			if (pte & PTE_W || pte & PTE_COW)	
-				duppage(envid, pn);
-			else 
-				sys_page_map(0, (void *)i, envid, (void *)i, PTE_P|PTE_U);				
+			duppage(envid, pn);
 		}	
 	}
 	
