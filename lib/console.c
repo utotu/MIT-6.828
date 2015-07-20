@@ -57,6 +57,7 @@ iscons(int fdnum)
 
 	if ((r = fd_lookup(fdnum, &fd)) < 0)
 		return r;
+	
 	return fd->fd_dev_id == devcons.dev_id;
 }
 

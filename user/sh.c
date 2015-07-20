@@ -55,7 +55,14 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 5: Your code here.
-			panic("< redirection not implemented");
+			if ((fd = open(t, O_RDONLY)) < 0) {
+				cprintf("open %s for read: %e", t, fd);
+				exit();
+			}	
+			if (fd != 0) {
+				dup(fd, 0);
+				close(fd);
+			}
 			break;
 
 		case '>':	// Output redirection
@@ -265,7 +272,7 @@ umain(int argc, char **argv)
 	interactive = '?';
 	echocmds = 0;
 	argstart(&argc, argv, &args);
-	while ((r = argnext(&args)) >= 0)
+	while ((r = argnext(&args)) >= 0) {
 		switch (r) {
 		case 'd':
 			debug++;
@@ -279,7 +286,7 @@ umain(int argc, char **argv)
 		default:
 			usage();
 		}
-
+	}
 	if (argc > 2)
 		usage();
 	if (argc == 2) {
